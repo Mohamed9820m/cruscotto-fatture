@@ -1,0 +1,598 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cruscotto Fatture: i dati di Fatture in Cloud su Looker Studio e Google Sheets</title>
+<meta name="description" content="Cruscotto Fatture porta fatturato, incassi, insoluti e IVA da Fatture in Cloud a Google Sheets e Looker Studio, aggiornati ogni notte. Per agenzie, studi e PMI.">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<meta property="og:title" content="Cruscotto Fatture">
+<meta property="og:description" content="I numeri di Fatture in Cloud nei report che usi già: Looker Studio e Google Sheets, aggiornati ogni notte.">
+<meta property="og:image" content="og.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#13294B; --ink-2:#2F4A73; --muted:#56657A; --paper:#F4F6F5; --surface:#FFFFFF;
+  --line:#DCE3E1; --green:#1E8A5C; --green-soft:#E3F2EA; --amber:#E2A72E; --amber-soft:#FBF1DC;
+  --red:#C2412D; --red-soft:#F8E3DF;
+  --wrap:1160px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+body{margin:0;font-family:"Schibsted Grotesk",system-ui,sans-serif;color:var(--ink);background:var(--paper);font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased}
+img,svg{display:block}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--amber);outline-offset:3px;border-radius:6px}
+.wrap{max-width:var(--wrap);margin:0 auto;padding:0 24px}
+td.num,td .num{font-variant-numeric:tabular-nums}
+
+/* header */
+.site-head{position:sticky;top:0;z-index:20;background:rgba(244,246,245,.92);backdrop-filter:blur(8px);border-bottom:1px solid transparent;transition:border-color .2s}
+.site-head.scrolled{border-bottom-color:var(--line)}
+.site-head .wrap{display:flex;align-items:center;justify-content:space-between;height:68px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font-weight:800;font-size:19px;letter-spacing:-.01em}
+.brand img{width:34px;height:34px}
+.nav{display:flex;align-items:center;gap:28px}
+.nav a{text-decoration:none;font-weight:500;color:var(--muted)}
+.nav a:hover{color:var(--ink)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font:inherit;font-weight:700;border:0;border-radius:10px;padding:13px 22px;cursor:pointer;text-decoration:none;transition:background .15s,transform .15s}
+.btn-primary{background:var(--ink);color:#fff}
+.btn-primary:hover{background:#0c1d38}
+.btn-ghost{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--ink)}
+.btn-ghost:hover{background:#e9eeec}
+.nav .btn{padding:10px 18px;color:#fff}
+@media (max-width:820px){.nav a:not(.btn){display:none}}
+
+/* hero */
+.hero{padding:64px 0 72px}
+.hero .wrap{display:grid;grid-template-columns:1fr 1.08fr;gap:56px;align-items:center}
+.status{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--green);background:var(--green-soft);padding:6px 12px;border-radius:999px;margin-bottom:22px}
+.status::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--green)}
+h1{font-size:clamp(38px,5vw,60px);line-height:1.04;letter-spacing:-.035em;font-weight:800;margin:0 0 22px;max-width:16ch}
+.lead{font-size:19px;color:var(--muted);max-width:52ch;margin:0 0 30px}
+.hero-ctas{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.micro{font-size:14px;color:var(--muted);margin-top:14px}
+@media (max-width:960px){.hero .wrap{grid-template-columns:1fr}.hero{padding-top:40px}}
+
+/* dashboard mock (the memorable element) */
+.dash{background:var(--surface);border-radius:20px;box-shadow:0 1px 0 var(--line),0 24px 60px -24px rgba(19,41,75,.35);overflow:hidden;border:1px solid var(--line)}
+.dash-top{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line)}
+.dash-client{font-weight:700}
+.dash-client small{display:block;font-weight:500;color:var(--muted);font-size:13px}
+.sample{font-size:12px;font-weight:600;color:var(--muted);background:var(--paper);padding:4px 10px;border-radius:999px}
+.tabs{display:flex;gap:4px;padding:12px 16px 0}
+.tab{font:inherit;font-size:15px;font-weight:600;color:var(--muted);background:none;border:0;padding:8px 14px;border-radius:8px 8px 0 0;cursor:pointer;border-bottom:3px solid transparent}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--green)}
+.panel{padding:20px;border-top:1px solid var(--line)}
+.panel[hidden]{display:none}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:22px}
+.kpi{padding:12px 14px;border-radius:12px;background:var(--paper)}
+.kpi span{display:block;font-size:13px;color:var(--muted)}
+.kpi strong{font-size:24px;letter-spacing:-.02em}
+.kpi.up strong{color:var(--green)}
+.kpi.warn strong{color:var(--red)}
+.bars{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;align-items:end;height:150px}
+.pair{display:flex;gap:4px;align-items:end;height:100%}
+.pair .bar{flex:1}
+.bar{background:var(--ink-2);border-radius:5px 5px 2px 2px;height:var(--h);transform-origin:bottom;animation:grow .9s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i) * 45ms)}
+.bar.ads{background:var(--amber)}
+.bar.now{background:var(--green)}
+@keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+.months{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;font-size:11px;color:var(--muted);text-align:center;margin-top:6px}
+.legend{display:flex;gap:16px;font-size:13px;color:var(--muted);margin-top:14px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th{text-align:left;font-size:13px;color:var(--muted);font-weight:600;padding:0 0 8px}
+td{padding:10px 0;border-top:1px solid var(--line)}
+td.r,th.r{text-align:right}
+.pill{display:inline-block;font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px}
+.pill.late{color:var(--red);background:var(--red-soft)}
+.pill.due{color:#8a5d00;background:var(--amber-soft)}
+.pill.paid{color:var(--green);background:var(--green-soft)}
+
+/* sections */
+section{padding:88px 0}
+h2{font-size:clamp(30px,3.4vw,42px);line-height:1.1;letter-spacing:-.03em;font-weight:800;margin:0 0 18px;max-width:22ch}
+.section-lead{color:var(--muted);font-size:18px;max-width:60ch;margin:0}
+
+.pain{background:var(--surface);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.pain .wrap{display:grid;grid-template-columns:1.1fr 1fr;gap:64px;align-items:start}
+.pain-list{margin:0;padding:0;list-style:none;display:grid;gap:18px}
+.pain-list li{padding-left:22px;position:relative}
+.pain-list li::before{content:"";position:absolute;left:0;top:.62em;width:10px;height:2px;background:var(--red)}
+.quote{margin:28px 0 0;padding:20px 22px;border-left:4px solid var(--amber);background:var(--amber-soft);border-radius:0 12px 12px 0;font-weight:600}
+@media (max-width:860px){.pain .wrap{grid-template-columns:1fr;gap:32px}}
+
+.uses{display:grid;grid-template-columns:repeat(3,1fr);gap:40px;margin-top:48px}
+.use h3{font-size:21px;letter-spacing:-.015em;margin:16px 0 8px}
+.use p{margin:0;color:var(--muted)}
+.use-viz{height:120px;border-radius:14px;background:var(--surface);border:1px solid var(--line);padding:16px;display:flex;align-items:flex-end;gap:6px}
+.use-viz .b{flex:1;border-radius:4px 4px 1px 1px}
+.use-viz.rows{flex-direction:column;align-items:stretch;justify-content:center;gap:9px}
+.use-viz .row{display:flex;justify-content:space-between;font-size:13px;font-weight:600}
+.use-viz .row span:last-child{padding:1px 8px;border-radius:999px}
+.use-viz.split{align-items:center;justify-content:space-around}
+.use-viz .q{text-align:center;font-size:13px;color:var(--muted)}
+.use-viz .q strong{display:block;font-size:20px;color:var(--ink)}
+@media (max-width:900px){.uses{grid-template-columns:1fr;gap:36px}}
+
+.steps{list-style:none;margin:48px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:0;counter-reset:s;border-top:2px solid var(--ink)}
+.steps li{counter-increment:s;padding:24px 28px 0 0}
+.steps li::before{content:counter(s);display:inline-grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;font-weight:700;margin-bottom:14px}
+.steps h3{margin:0 0 6px;font-size:20px}
+.steps p{margin:0;color:var(--muted)}
+@media (max-width:860px){.steps{grid-template-columns:1fr}.steps li{padding:24px 0 0}}
+
+.agency{background:var(--ink);color:#fff}
+.agency .wrap{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center}
+.agency .section-lead{color:#c7d2e2}
+.agency ul{list-style:none;margin:28px 0 0;padding:0;display:grid;gap:14px}
+.agency li{display:flex;gap:12px}
+.agency li::before{content:"";flex:none;width:20px;height:20px;margin-top:4px;border-radius:50%;background:var(--green) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M5.5 10.5l3 3 6-7' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/16px no-repeat}
+.clients{background:#1b345c;border-radius:18px;padding:22px}
+.clients h3{margin:0 0 14px;font-size:15px;color:#c7d2e2;font-weight:600}
+.client{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-top:1px solid #2c4877}
+.client:first-of-type{border-top:0}
+.client b{font-weight:600}
+.client span{font-size:14px;color:#c7d2e2}
+.partner{margin-top:26px;font-size:15px;color:#c7d2e2}
+.partner strong{color:#fff}
+@media (max-width:860px){.agency .wrap{grid-template-columns:1fr;gap:36px}}
+
+.pricing-head{display:flex;justify-content:space-between;align-items:end;gap:24px;flex-wrap:wrap}
+.toggle{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:4px}
+.toggle button{font:inherit;font-weight:600;font-size:15px;border:0;background:none;padding:8px 14px;border-radius:7px;cursor:pointer;color:var(--muted)}
+.toggle button[aria-pressed="true"]{background:var(--ink);color:#fff}
+.plans{display:grid;grid-template-columns:1fr 1.12fr 1fr;gap:20px;margin-top:40px;align-items:stretch}
+.plan{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:28px;display:flex;flex-direction:column}
+.plan.featured{border:2px solid var(--ink);box-shadow:0 20px 50px -28px rgba(19,41,75,.45);position:relative}
+.plan .tag{position:absolute;top:-13px;left:28px;background:var(--green);color:#fff;font-size:13px;font-weight:700;padding:4px 12px;border-radius:999px}
+.plan h3{margin:0;font-size:22px}
+.plan .for{color:var(--muted);margin:4px 0 18px}
+.price{font-size:44px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.price small{font-size:16px;font-weight:500;color:var(--muted);letter-spacing:0}
+.billed{font-size:14px;color:var(--muted);min-height:22px;margin:6px 0 20px}
+.plan ul{list-style:none;margin:0 0 26px;padding:0;display:grid;gap:10px;flex:1;align-content:start}
+.plan li{padding-left:26px;position:relative;font-size:16px}
+.plan li::before{content:"";position:absolute;left:0;top:7px;width:14px;height:8px;border-left:2.5px solid var(--green);border-bottom:2.5px solid var(--green);transform:rotate(-45deg)}
+.plan .soon{font-size:13px;font-weight:700;color:#8a5d00;background:var(--amber-soft);padding:3px 10px;border-radius:999px;margin-left:8px;vertical-align:3px}
+.plan .btn{width:100%}
+.price-note{margin-top:22px;color:var(--muted);font-size:15px}
+@media (max-width:900px){.plans{grid-template-columns:1fr}}
+
+.trust{background:var(--surface);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.trust-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:32px;margin-top:40px}
+.trust-grid h3{font-size:18px;margin:0 0 6px}
+.trust-grid p{margin:0;color:var(--muted);font-size:16px}
+@media (max-width:900px){.trust-grid{grid-template-columns:1fr 1fr}}
+@media (max-width:560px){.trust-grid{grid-template-columns:1fr}}
+
+.faq .wrap{display:grid;grid-template-columns:.8fr 1.2fr;gap:64px}
+details{border-top:1px solid var(--line);padding:18px 0}
+details:last-child{border-bottom:1px solid var(--line)}
+summary{font-weight:700;font-size:18px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:16px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";font-size:24px;line-height:1;color:var(--muted);transition:transform .2s}
+details[open] summary::after{transform:rotate(45deg)}
+details p{margin:10px 0 0;color:var(--muted);max-width:62ch}
+@media (max-width:860px){.faq .wrap{grid-template-columns:1fr;gap:20px}}
+
+.signup{padding-bottom:110px}
+.signup-box{background:var(--surface);border:1px solid var(--line);border-radius:22px;display:grid;grid-template-columns:.9fr 1.1fr;overflow:hidden}
+.signup-side{background:var(--green);color:#fff;padding:44px}
+.signup-side h2{color:#fff}
+.signup-side p{color:#e6f4ec}
+.signup-side ul{list-style:none;padding:0;margin:26px 0 0;display:grid;gap:12px}
+.signup-side li{padding-left:26px;position:relative}
+.signup-side li::before{content:"";position:absolute;left:0;top:7px;width:14px;height:8px;border-left:2.5px solid #fff;border-bottom:2.5px solid #fff;transform:rotate(-45deg)}
+form{padding:40px 44px;display:grid;grid-template-columns:1fr 1fr;gap:16px 18px}
+.field{display:grid;gap:6px}
+.field.full{grid-column:1/-1}
+label{font-size:15px;font-weight:600}
+.opt{font-weight:400;color:var(--muted)}
+input,select,textarea{font:inherit;font-size:16px;color:var(--ink);background:var(--paper);border:1.5px solid var(--line);border-radius:10px;padding:11px 12px;width:100%}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--ink);background:#fff}
+textarea{min-height:84px;resize:vertical}
+.consent{grid-column:1/-1;display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--muted)}
+.consent input{width:18px;height:18px;margin-top:3px;flex:none}
+form .btn{grid-column:1/-1;padding:15px}
+.form-msg{grid-column:1/-1;font-size:15px;margin:0}
+.form-msg.err{color:var(--red)}
+.done{grid-column:1/-1;padding:24px;border-radius:14px;background:var(--green-soft);color:#13573a}
+.done strong{display:block;font-size:20px;margin-bottom:4px}
+.hp{position:absolute;left:-9999px}
+@media (max-width:900px){.signup-box{grid-template-columns:1fr}form{grid-template-columns:1fr;padding:30px 24px}.signup-side{padding:32px 24px}}
+
+footer{border-top:1px solid var(--line);padding:36px 0 48px;font-size:14px;color:var(--muted)}
+footer .wrap{display:grid;gap:14px}
+footer .row{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+footer a{color:var(--ink)}
+
+.hero .wrap>*,.pain .wrap>*,.agency .wrap>*,.faq .wrap>*,.signup-box>*{min-width:0}
+body{overflow-x:hidden}
+@media (max-width:560px){
+  .wrap{padding:0 18px}
+  .nav .btn{padding:8px 12px;font-size:14px}
+  .brand{font-size:17px}
+  .hero-ctas .btn{width:100%}
+  .kpis{gap:8px}
+  .kpi{padding:10px}
+  .kpi span{font-size:12px}
+  .kpi strong{font-size:18px}
+  .tabs{overflow-x:auto}
+  .tab{padding:8px 10px;font-size:14px;white-space:nowrap}
+  .bars{gap:8px}
+  table{font-size:14px}
+  .dash-top{gap:8px}
+  section{padding:64px 0}
+}
+</style>
+</head>
+<body>
+
+<header class="site-head" id="top">
+  <div class="wrap">
+    <a class="brand" href="#top"><img src="logo.svg" alt="" width="34" height="34">Cruscotto Fatture</a>
+    <nav class="nav" aria-label="Principale">
+      <a href="#come-funziona">Come funziona</a>
+      <a href="#agenzie">Per agenzie</a>
+      <a href="#prezzi">Prezzi</a>
+      <a href="#faq">Domande</a>
+      <a class="btn btn-primary" href="#prenota">Prenota l'accesso</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<section class="hero">
+  <div class="wrap">
+    <div>
+      <span class="status">Accesso anticipato aperto</span>
+      <h1>I numeri di Fatture in Cloud, nei report che usi già.</h1>
+      <p class="lead">Cruscotto Fatture porta fatturato, incassi, insoluti e IVA da Fatture in Cloud a Google Sheets e Looker Studio, e li aggiorna ogni notte. Pensato per agenzie e studi che preparano report per più aziende.</p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary" href="#prenota">Prenota l'accesso anticipato</a>
+        <a class="btn btn-ghost" href="#prezzi">Vedi i prezzi</a>
+      </div>
+      <p class="micro">Prenotare è gratuito e non serve la carta di credito.</p>
+    </div>
+
+    <div class="dash" aria-label="Anteprima del cruscotto con dati di esempio">
+      <div class="dash-top">
+        <div class="dash-client">Rossi Arredi Srl<small>Report mensile, ottobre 2026</small></div>
+        <span class="sample">Dati di esempio</span>
+      </div>
+      <div class="tabs" role="tablist" aria-label="Viste del cruscotto">
+        <button class="tab" role="tab" aria-selected="true" aria-controls="p-fat" id="t-fat">Fatturato e ads</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="p-ins" id="t-ins" tabindex="-1">Insoluti</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="p-iva" id="t-iva" tabindex="-1">IVA</button>
+      </div>
+      <div class="panel" role="tabpanel" id="p-fat" aria-labelledby="t-fat">
+        <div class="kpis">
+          <div class="kpi up"><span>Fatturato ottobre</span><strong class="num">€ 48.320</strong></div>
+          <div class="kpi"><span>Spesa ads</span><strong class="num">€ 3.150</strong></div>
+          <div class="kpi up"><span>Fatturato per € di ads</span><strong class="num">15,3</strong></div>
+        </div>
+        <div class="bars" aria-hidden="true"><div class="pair"><div class="bar" style="--h:52%;--i:0"></div><div class="bar ads" style="--h:9%;--i:1"></div></div><div class="pair"><div class="bar" style="--h:58%;--i:2"></div><div class="bar ads" style="--h:10%;--i:3"></div></div><div class="pair"><div class="bar" style="--h:44%;--i:4"></div><div class="bar ads" style="--h:8%;--i:5"></div></div><div class="pair"><div class="bar" style="--h:35%;--i:6"></div><div class="bar ads" style="--h:5%;--i:7"></div></div><div class="pair"><div class="bar" style="--h:68%;--i:8"></div><div class="bar ads" style="--h:11%;--i:9"></div></div><div class="pair"><div class="bar now" style="--h:86%;--i:10"></div><div class="bar ads" style="--h:12%;--i:11"></div></div></div>
+        <div class="months" aria-hidden="true"><span>Mag</span><span>Giu</span><span>Lug</span><span>Ago</span><span>Set</span><span>Ott</span></div>
+        <div class="legend"><span><i style="background:var(--ink-2)"></i>Fatturato</span><span><i style="background:var(--amber)"></i>Spesa ads</span><span><i style="background:var(--green)"></i>Mese corrente</span></div>
+      </div>
+      <div class="panel" role="tabpanel" id="p-ins" aria-labelledby="t-ins" hidden>
+        <div class="kpis">
+          <div class="kpi warn"><span>Scadute</span><strong class="num">€ 7.940</strong></div>
+          <div class="kpi"><span>In scadenza 30 gg</span><strong class="num">€ 12.600</strong></div>
+          <div class="kpi up"><span>Incassate ottobre</span><strong class="num">€ 39.210</strong></div>
+        </div>
+        <table>
+          <thead><tr><th>Cliente</th><th>Scadenza</th><th class="r">Importo</th><th class="r">Stato</th></tr></thead>
+          <tbody>
+            <tr><td>Hotel Miramare</td><td class="num">15/09</td><td class="r num">€ 4.880</td><td class="r"><span class="pill late">Scaduta</span></td></tr>
+            <tr><td>Studio Bianchi</td><td class="num">30/09</td><td class="r num">€ 3.060</td><td class="r"><span class="pill late">Scaduta</span></td></tr>
+            <tr><td>Ferri Costruzioni</td><td class="num">10/11</td><td class="r num">€ 7.200</td><td class="r"><span class="pill due">In scadenza</span></td></tr>
+            <tr><td>Caffè Etna</td><td class="num">05/10</td><td class="r num">€ 1.150</td><td class="r"><span class="pill paid">Pagata</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="panel" role="tabpanel" id="p-iva" aria-labelledby="t-iva" hidden>
+        <div class="kpis">
+          <div class="kpi"><span>IVA a debito</span><strong class="num">€ 10.630</strong></div>
+          <div class="kpi"><span>IVA a credito</span><strong class="num">€ 4.115</strong></div>
+          <div class="kpi warn"><span>Da versare</span><strong class="num">€ 6.515</strong></div>
+        </div>
+        <table>
+          <thead><tr><th>Periodo</th><th class="r">Debito</th><th class="r">Credito</th><th class="r">Saldo</th></tr></thead>
+          <tbody>
+            <tr><td>Agosto</td><td class="r num">€ 6.210</td><td class="r num">€ 2.480</td><td class="r num">€ 3.730</td></tr>
+            <tr><td>Settembre</td><td class="r num">€ 8.940</td><td class="r num">€ 3.320</td><td class="r num">€ 5.620</td></tr>
+            <tr><td>Ottobre</td><td class="r num">€ 10.630</td><td class="r num">€ 4.115</td><td class="r num">€ 6.515</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="pain">
+  <div class="wrap">
+    <div>
+      <h2>Ogni fine mese, lo stesso export in Excel.</h2>
+      <p class="section-lead">Scarichi il file da Fatture in Cloud, lo incolli nel foglio, sistemi le colonne. Il giorno dopo i numeri sono già vecchi. Con dieci clienti, gli export diventano dieci.</p>
+      <p class="quote">Nei report di marketing il cliente vede clic e costo per lead. Il fatturato resta chiuso in Fatture in Cloud.</p>
+    </div>
+    <ul class="pain-list">
+      <li>Le fatture scadute si scoprono quando il commercialista chiede l'estratto conto.</li>
+      <li>L'IVA del trimestre si ricalcola a mano, sperando che il file sia quello giusto.</li>
+      <li>Collegare Fatture in Cloud con Zapier o Make richiede un tecnico e si rompe al primo cambio.</li>
+      <li>Il report Looker Studio del cliente mostra tutto tranne i soldi incassati.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="vantaggi">
+  <div class="wrap">
+    <h2>Tre viste pronte, aggiornate da sole.</h2>
+    <p class="section-lead">Colleghi Fatture in Cloud una volta. Da quel momento i dati arrivano dove lavori già, ogni notte.</p>
+    <div class="uses">
+      <div class="use">
+        <div class="use-viz" aria-hidden="true">
+          <div class="b" style="height:40%;background:var(--ink-2)"></div><div class="b" style="height:55%;background:var(--ink-2)"></div><div class="b" style="height:48%;background:var(--ink-2)"></div><div class="b" style="height:70%;background:var(--ink-2)"></div><div class="b" style="height:18%;background:var(--amber)"></div><div class="b" style="height:88%;background:var(--green)"></div>
+        </div>
+        <h3>Spesa ads e fatturato nello stesso report</h3>
+        <p>Affianca i dati di Fatture in Cloud alle fonti che usi in Looker Studio, come Google Ads e Meta, e mostra quanto ha fatturato il cliente nel mese della campagna.</p>
+      </div>
+      <div class="use">
+        <div class="use-viz rows" aria-hidden="true">
+          <div class="row"><span>Hotel Miramare</span><span style="color:var(--red);background:var(--red-soft)">Scaduta</span></div>
+          <div class="row"><span>Ferri Costruzioni</span><span style="color:#8a5d00;background:var(--amber-soft)">In scadenza</span></div>
+          <div class="row"><span>Caffè Etna</span><span style="color:var(--green);background:var(--green-soft)">Pagata</span></div>
+        </div>
+        <h3>Insoluti e scadenze sempre in vista</h3>
+        <p>Lo scadenzario elenca le fatture da incassare e quelle scadute, con lo stato di pagamento che registri in Fatture in Cloud.</p>
+      </div>
+      <div class="use">
+        <div class="use-viz split" aria-hidden="true">
+          <div class="q">Lug–Set<strong class="num">€ 14.880</strong></div>
+          <div class="q">Ott–Dic<strong class="num">€ 6.515</strong></div>
+        </div>
+        <h3>IVA del mese e del trimestre</h3>
+        <p>IVA a debito e a credito per mese e per trimestre, in un foglio pronto da condividere con il commercialista.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="come-funziona" style="padding-top:0">
+  <div class="wrap">
+    <h2>Pronto in tre passaggi.</h2>
+    <ol class="steps">
+      <li><h3>Collega Fatture in Cloud</h3><p>Accedi con il tuo account Fatture in Cloud e autorizzi la sola lettura. Cruscotto Fatture non crea, modifica o invia fatture.</p></li>
+      <li><h3>Scegli dove vedere i dati</h3><p>Un Google Sheet con fatture emesse, ricevute e scadenzario, oppure il connettore Looker Studio con il modello già impostato.</p></li>
+      <li><h3>Apri il report aggiornato</h3><p>Ogni notte i dati si aggiornano. Il report che mandi al cliente resta allineato a Fatture in Cloud.</p></li>
+    </ol>
+  </div>
+</section>
+
+<section class="agency" id="agenzie">
+  <div class="wrap">
+    <div>
+      <h2>Per agenzie e studi che seguono più aziende.</h2>
+      <p class="section-lead">Uno spazio di lavoro per tutti i clienti. Colleghi il Fatture in Cloud di ogni azienda una volta e scegli quali report condividere.</p>
+      <ul>
+        <li>Fino a 10 aziende clienti con il piano Studio</li>
+        <li>Modello Looker Studio con il logo della tua agenzia</li>
+        <li>Ogni cliente vede solo i propri dati</li>
+        <li>Supporto in italiano, via email</li>
+      </ul>
+      <p class="partner"><strong>Programma partner:</strong> 20% ricorrente su ogni abbonamento dei clienti che porti.</p>
+    </div>
+    <div class="clients" aria-label="Esempio di spazio di lavoro agenzia">
+      <h3>Spazio di lavoro, esempio</h3>
+      <div class="client"><b>Rossi Arredi Srl</b><span>Looker Studio, aggiornato stanotte</span></div>
+      <div class="client"><b>Hotel Miramare</b><span>Google Sheets, aggiornato stanotte</span></div>
+      <div class="client"><b>Ferri Costruzioni</b><span>Looker Studio, aggiornato stanotte</span></div>
+      <div class="client"><b>Studio Bianchi</b><span>Google Sheets, aggiornato stanotte</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="prezzi">
+  <div class="wrap">
+    <div class="pricing-head">
+      <div>
+        <h2>Prezzi semplici, per azienda.</h2>
+        <p class="section-lead">Chi prenota durante l'accesso anticipato riceve il primo mese gratuito.</p>
+      </div>
+      <div class="toggle" role="group" aria-label="Fatturazione">
+        <button type="button" aria-pressed="true" data-bill="m">Mensile</button>
+        <button type="button" aria-pressed="false" data-bill="y">Annuale, 2 mesi gratis</button>
+      </div>
+    </div>
+    <div class="plans">
+      <article class="plan">
+        <h3>Starter</h3>
+        <p class="for">Per una singola azienda</p>
+        <div class="price num" data-m="19" data-y="190">€19<small> /mese</small></div>
+        <div class="billed" data-m="IVA esclusa" data-y="€190 l'anno, IVA esclusa">IVA esclusa</div>
+        <ul>
+          <li>1 azienda collegata</li>
+          <li>Sincronizzazione con Google Sheets</li>
+          <li>Connettore Looker Studio</li>
+          <li>Modello controllo di gestione e scadenzario</li>
+          <li>Aggiornamento ogni notte</li>
+        </ul>
+        <a class="btn btn-ghost" href="#prenota" data-plan="Starter">Prenota Starter</a>
+      </article>
+      <article class="plan featured">
+        <span class="tag">Per agenzie e commercialisti</span>
+        <h3>Studio</h3>
+        <p class="for">Per chi fa report a più aziende</p>
+        <div class="price num" data-m="79" data-y="790">€79<small> /mese</small></div>
+        <div class="billed" data-m="IVA esclusa" data-y="€790 l'anno, IVA esclusa">IVA esclusa</div>
+        <ul>
+          <li>Fino a 10 aziende clienti</li>
+          <li>Tutto quello che c'è in Starter</li>
+          <li>Modello con il logo della tua agenzia</li>
+          <li>Spazio di lavoro multi-cliente</li>
+          <li>Supporto prioritario in italiano</li>
+        </ul>
+        <a class="btn btn-primary" href="#prenota" data-plan="Studio">Prenota Studio</a>
+      </article>
+      <article class="plan">
+        <h3>Pro CRM <span class="soon">In arrivo</span></h3>
+        <p class="for">Per chi vende con HubSpot</p>
+        <div class="price num" data-m="39" data-y="390">€39<small> /mese</small></div>
+        <div class="billed" data-m="IVA esclusa" data-y="€390 l'anno, IVA esclusa">IVA esclusa</div>
+        <ul>
+          <li>Tutto quello che c'è in Starter</li>
+          <li>Trattativa vinta in HubSpot, fattura creata in Fatture in Cloud</li>
+          <li>Stato di pagamento visibile sulla trattativa</li>
+        </ul>
+        <a class="btn btn-ghost" href="#prenota" data-plan="Pro CRM">Avvisami per Pro CRM</a>
+      </article>
+    </div>
+    <p class="price-note">Non paghi nulla al momento della prenotazione. Ti chiediamo di confermare il piano solo quando il tuo accesso è pronto, e puoi disdire in qualsiasi momento.</p>
+  </div>
+</section>
+
+<section class="trust">
+  <div class="wrap">
+    <h2>I dati della tua azienda restano tuoi.</h2>
+    <div class="trust-grid">
+      <div><h3>Sola lettura</h3><p>Cruscotto Fatture legge i dati. Non crea, modifica o invia fatture.</p></div>
+      <div><h3>Server in Europa</h3><p>I dati vengono elaborati su server nell'Unione Europea, nel rispetto del GDPR.</p></div>
+      <div><h3>Revoca in un clic</h3><p>Puoi scollegare Fatture in Cloud quando vuoi. I tuoi dati vengono cancellati.</p></div>
+      <div><h3>Accesso ufficiale</h3><p>Il collegamento usa l'accesso autorizzato di Fatture in Cloud, senza condividere password.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="faq" id="faq">
+  <div class="wrap">
+    <h2>Domande frequenti</h2>
+    <div>
+      <details><summary>Cruscotto Fatture è già disponibile?</summary><p>Stiamo aprendo l'accesso a piccoli gruppi, a partire da agenzie e studi. Prenota il tuo posto: ti scriviamo quando è il tuo turno, con le istruzioni per collegare Fatture in Cloud.</p></details>
+      <details><summary>Devo pagare adesso?</summary><p>No. La prenotazione è gratuita e non serve una carta di credito. Ti chiediamo di confermare il piano solo quando il tuo accesso è pronto, con il primo mese gratuito.</p></details>
+      <details><summary>Quale piano di Fatture in Cloud serve?</summary><p>Il collegamento usa le API ufficiali di Fatture in Cloud, disponibili su tutti i piani. Se hai dubbi sul tuo, indicalo nel modulo e ti rispondiamo.</p></details>
+      <details><summary>Uso Aruba, Danea o un altro software. Funziona?</summary><p>Partiamo da Fatture in Cloud. Indica il tuo software nel modulo: le prossime integrazioni dipendono dalle richieste che riceviamo.</p></details>
+      <details><summary>Serve saper usare Looker Studio?</summary><p>No. Il modello è già impostato: lo copi e vedi i tuoi dati. Se preferisci lavorare solo con Google Sheets, va bene lo stesso.</p></details>
+      <details><summary>Sono un commercialista. Fa per me?</summary><p>Sì. Con il piano Studio colleghi fino a 10 aziende clienti e prepari per ognuna scadenzario, insoluti e IVA, senza export manuali.</p></details>
+      <details><summary>Chi c'è dietro Cruscotto Fatture?</summary><p>Marouani Apps, uno studio software di Messina che sviluppa app per il Marketplace Atlassian e integrazioni per aziende italiane.</p></details>
+    </div>
+  </div>
+</section>
+
+<section class="signup" id="prenota">
+  <div class="wrap">
+    <div class="signup-box">
+      <div class="signup-side">
+        <h2>Prenota il tuo posto.</h2>
+        <p>Ti scriviamo appena il tuo accesso è pronto. Le risposte ci servono per preparare il modello giusto per te.</p>
+        <ul>
+          <li>Primo mese gratuito</li>
+          <li>Nessuna carta richiesta</li>
+          <li>Prezzo di lancio bloccato per chi prenota ora</li>
+        </ul>
+      </div>
+      <form id="form" novalidate>
+        <input type="text" name="_honey" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <div class="field"><label for="f-name">Nome e cognome</label><input id="f-name" name="nome" autocomplete="name" required></div>
+        <div class="field"><label for="f-email">Email di lavoro</label><input id="f-email" name="email" type="email" autocomplete="email" required></div>
+        <div class="field"><label for="f-company">Azienda o studio</label><input id="f-company" name="azienda" autocomplete="organization" required></div>
+        <div class="field"><label for="f-type">Sei</label>
+          <select id="f-type" name="tipo" required>
+            <option value="">Scegli</option><option>Agenzia di marketing</option><option>Studio commercialista o consulente</option><option>Azienda</option><option>Altro</option>
+          </select></div>
+        <div class="field"><label for="f-count">Aziende che segui su Fatture in Cloud</label>
+          <select id="f-count" name="aziende_seguite">
+            <option>1</option><option>2–5</option><option>6–10</option><option>Più di 10</option>
+          </select></div>
+        <div class="field"><label for="f-plan">Piano che ti interessa</label>
+          <select id="f-plan" name="piano">
+            <option>Starter</option><option selected>Studio</option><option>Pro CRM</option>
+          </select></div>
+        <div class="field"><label for="f-soft">Software di fatturazione</label>
+          <select id="f-soft" name="software">
+            <option>Fatture in Cloud</option><option>Aruba</option><option>Danea Easyfatt</option><option>TeamSystem</option><option>Altro</option>
+          </select></div>
+        <div class="field"><label for="f-rep">Dove fai i report oggi</label>
+          <select id="f-rep" name="report">
+            <option>Looker Studio</option><option>Google Sheets</option><option>Excel</option><option>Non li faccio</option><option>Altro</option>
+          </select></div>
+        <div class="field full"><label for="f-msg">Cosa vorresti vedere nel cruscotto <span class="opt">(facoltativo)</span></label><textarea id="f-msg" name="messaggio"></textarea></div>
+        <label class="consent"><input type="checkbox" name="privacy" required> <span>Ho letto l'<a href="privacy.html">informativa privacy</a> e accetto di essere contattato per l'accesso a Cruscotto Fatture.</span></label>
+        <button class="btn btn-primary" type="submit">Prenota il mio posto</button>
+        <p class="form-msg" id="form-msg" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="row">
+      <span>© 2026 Marouani Apps, Messina. <a href="mailto:mohamedhabibmarouani8@gmail.com">mohamedhabibmarouani8@gmail.com</a></span>
+      <a href="privacy.html">Informativa privacy</a>
+    </div>
+    <p style="margin:0">Fatture in Cloud è un marchio di TeamSystem S.p.A. Google Sheets e Looker Studio sono marchi di Google LLC. HubSpot è un marchio di HubSpot, Inc. Cruscotto Fatture è un prodotto indipendente e non è affiliato a queste aziende.</p>
+  </div>
+</footer>
+
+<script>
+// header border on scroll
+const head = document.querySelector('.site-head');
+addEventListener('scroll', () => head.classList.toggle('scrolled', scrollY > 8), {passive:true});
+
+// dashboard tabs (keyboard accessible)
+const tabs = [...document.querySelectorAll('.tab')];
+function select(t){
+  tabs.forEach(x => { const on = x === t; x.setAttribute('aria-selected', on); x.tabIndex = on ? 0 : -1;
+    document.getElementById(x.getAttribute('aria-controls')).hidden = !on; });
+  t.focus();
+}
+tabs.forEach((t,i) => {
+  t.addEventListener('click', () => select(t));
+  t.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight') select(tabs[(i+1)%tabs.length]);
+    if (e.key === 'ArrowLeft') select(tabs[(i-1+tabs.length)%tabs.length]);
+  });
+});
+
+// monthly / yearly toggle
+document.querySelectorAll('.toggle button').forEach(b => b.addEventListener('click', () => {
+  const y = b.dataset.bill === 'y';
+  document.querySelectorAll('.toggle button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  document.querySelectorAll('.price').forEach(p => p.innerHTML = '€' + (y ? p.dataset.y : p.dataset.m) + '<small>' + (y ? ' /anno' : ' /mese') + '</small>');
+  document.querySelectorAll('.billed').forEach(p => p.textContent = y ? p.dataset.y : p.dataset.m);
+}));
+
+// plan buttons preselect the plan in the form
+document.querySelectorAll('[data-plan]').forEach(a => a.addEventListener('click', () => {
+  document.getElementById('f-plan').value = a.dataset.plan;
+}));
+
+// form submit (sent to the owner's inbox)
+const form = document.getElementById('form'), msg = document.getElementById('form-msg');
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  msg.className = 'form-msg'; msg.textContent = '';
+  if (!form.checkValidity()) { msg.className = 'form-msg err'; msg.textContent = 'Compila nome, email, azienda, tipo e accetta l\'informativa privacy.'; form.reportValidity(); return; }
+  const btn = form.querySelector('button[type=submit]'); btn.disabled = true; btn.textContent = 'Invio in corso…';
+  const data = Object.fromEntries(new FormData(form));
+  data._subject = 'Nuova prenotazione Cruscotto Fatture: ' + data.piano + ' (' + data.tipo + ')';
+  data._template = 'table'; data._captcha = 'false';
+  try {
+    const r = await fetch('https://formsubmit.co/ajax/mohamedhabibmarouani8@gmail.com', {method:'POST', headers:{'Content-Type':'application/json', Accept:'application/json'}, body: JSON.stringify(data)});
+    if (!r.ok) throw new Error();
+    form.innerHTML = '<div class="done"><strong>Posto prenotato.</strong>Grazie ' + (data.nome || '').split(' ')[0].replace(/[<>&]/g,'') + ', ti scriveremo all\'indirizzo che hai indicato appena il tuo accesso è pronto.</div>';
+  } catch {
+    btn.disabled = false; btn.textContent = 'Prenota il mio posto';
+    msg.className = 'form-msg err'; msg.textContent = 'Invio non riuscito. Riprova tra qualche secondo oppure scrivi a mohamedhabibmarouani8@gmail.com.';
+  }
+});
+</script>
+</body>
+</html>

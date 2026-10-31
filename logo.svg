@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Cruscotto Fatture">
+  <rect width="64" height="64" rx="15" fill="#13294B"/>
+  <path d="M14 42a18 18 0 0 1 36 0" fill="none" stroke="#2F4A73" stroke-width="6" stroke-linecap="round"/>
+  <path d="M14 42a18 18 0 0 1 27.2-15.5" fill="none" stroke="#1E8A5C" stroke-width="6" stroke-linecap="round"/>
+  <path d="M32 42 43.5 27" stroke="#F4F6F5" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="32" cy="42" r="4.5" fill="#F4F6F5"/>
+  <rect x="22" y="49" width="20" height="3.5" rx="1.75" fill="#E2A72E"/>
+</svg>
